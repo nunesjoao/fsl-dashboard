@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shipments FSL Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <h1 id="dashTitle">Shipments FSL 2026</h1>
+    <span id="dataInfo" class="muted mono"></span>
+  </div>
+  <nav class="actions">
+    <button class="btn primary" id="btnImport" title="Importar planilha .xlsx">Importar planilha</button>
+    <button class="btn" id="btnAddChart">+ Gráfico</button>
+    <button class="btn" id="btnSettings">Configurações</button>
+    <button class="btn icon" id="btnTheme" title="Alternar tema claro/escuro">Tema</button>
+  </nav>
+  <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls" hidden>
+</header>
+
+<main>
+  <section id="emptyState" class="empty" hidden>
+    <div class="dropzone" id="dropzone">
+      <h2>Importe a planilha de shipments</h2>
+      <p>Arraste o arquivo <span class="mono">.xlsx</span> aqui ou clique para selecionar.<br>
+      A leitura acontece no seu navegador; nenhum dado é enviado para servidor.</p>
+      <button class="btn primary" id="btnImport2">Selecionar arquivo</button>
+    </div>
+  </section>
+
+  <section id="dash" hidden>
+    <div class="filterbar">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="charts" role="tab">Gráficos</button>
+        <button class="tab" data-tab="data" role="tab">Dados</button>
+      </div>
+      <div id="globalFilterChips" class="chips"></div>
+      <button class="btn small" id="btnGlobalFilters">Filtros globais</button>
+    </div>
+
+    <div id="warnings"></div>
+
+    <div id="tabCharts">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <div id="tabData" hidden>
+      <div class="datatools">
+        <input type="search" id="dataSearch" placeholder="Buscar em todas as colunas…">
+        <span id="dataCount" class="muted"></span>
+        <button class="btn small" id="btnExportCsv">Exportar CSV (filtrado)</button>
+      </div>
+      <div class="tablewrap"><table id="dataTable" class="tbl"></table></div>
+      <div class="pager"><button class="btn small" id="pgPrev">‹</button><span id="pgInfo" class="muted"></span><button class="btn small" id="pgNext">›</button></div>
+    </div>
+  </section>
+</main>
+
+<!-- Editor de gráfico -->
+<dialog id="dlgChart" class="dlg wide">
+  <form method="dialog" id="chartForm">
+    <header class="dlg-h"><h2 id="dlgChartTitle">Editar gráfico</h2><button class="btn icon" value="cancel" aria-label="Fechar">✕</button></header>
+    <div class="editor">
+      <div class="editor-form" id="editorForm"></div>
+      <div class="editor-preview">
+        <div class="card preview"><div class="card-h"><h3 id="pvTitle"></h3></div><div class="chartbox"><canvas id="pvCanvas"></canvas></div></div>
+      </div>
+    </div>
+    <footer class="dlg-f">
+      <button class="btn danger" type="button" id="btnDeleteChart">Excluir</button>
+      <span class="spacer"></span>
+      <button class="btn" value="cancel">Cancelar</button>
+      <button class="btn primary" type="button" id="btnSaveChart">Salvar</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Filtros globais -->
+<dialog id="dlgGlobal" class="dlg">
+  <form method="dialog">
+    <header class="dlg-h"><h2>Filtros globais</h2><button class="btn icon" value="cancel" aria-label="Fechar">✕</button></header>
+    <p class="muted">Aplicados a todos os gráficos e indicadores, além dos filtros de cada gráfico.</p>
+    <div id="globalFiltersEditor"></div>
+    <footer class="dlg-f"><span class="spacer"></span><button class="btn" value="cancel">Cancelar</button><button class="btn primary" type="button" id="btnSaveGlobal">Aplicar</button></footer>
+  </form>
+</dialog>
+
+<!-- Configurações -->
+<dialog id="dlgSettings" class="dlg">
+  <form method="dialog">
+    <header class="dlg-h"><h2>Configurações</h2><button class="btn icon" value="cancel" aria-label="Fechar">✕</button></header>
+    <label class="fld"><span>Título do dashboard</span><input id="setTitle"></label>
+    <label class="fld"><span>Aba da planilha com os dados</span><select id="setSheet"></select></label>
+    <label class="fld"><span>Cotação USD→BRL (vazio = automática)</span><input id="setRate" type="number" step="0.0001" placeholder="automática"></label>
+    <h3>Fonte de dados</h3>
+    <p class="muted" id="setDataInfo"></p>
+    <div class="row"><button class="btn" type="button" id="btnClearData">Remover dados salvos neste navegador</button></div>
+    <h3>Layout</h3>
+    <p class="muted">As personalizações ficam salvas neste navegador. Para publicar para todos, exporte o JSON e substitua <span class="mono">config/dashboard.json</span> no repositório.</p>
+    <div class="row">
+      <button class="btn" type="button" id="btnExportCfg">Exportar layout (JSON)</button>
+      <button class="btn" type="button" id="btnImportCfg">Importar layout</button>
+      <button class="btn danger" type="button" id="btnResetCfg">Restaurar padrão</button>
+      <input type="file" id="cfgInput" accept=".json" hidden>
+    </div>
+    <footer class="dlg-f"><span class="spacer"></span><button class="btn" value="cancel">Cancelar</button><button class="btn primary" type="button" id="btnSaveSettings">Salvar</button></footer>
+  </form>
+</dialog>
+
+<div id="dropOverlay" class="dropoverlay" hidden><div>Solte a planilha para importar</div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

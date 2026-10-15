@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "title": "Shipments FSL 2026",
+  "sheet": "Data",
+  "usdbrl": null,
+  "globalFilters": [],
+  "charts": [
+    {
+      "id": "avg-time-omni",
+      "title": "Average Time of Deliveries - FSL 2026",
+      "subtitle": "OMNI · Prioridades WS, URG, ROU, PAOG (sem AOG)",
+      "width": "half",
+      "groupBy": "Mês",
+      "sort": "key",
+      "topN": 0,
+      "showLabels": true,
+      "horizontal": false,
+      "filters": [
+        { "field": "Ship To Party Name", "mode": "include", "values": ["OMN"] },
+        { "field": "Priority", "mode": "exclude", "values": ["AOG", "(vazio)"] }
+      ],
+      "series": [
+        { "label": "#of orders", "agg": "count", "field": null, "unit": "number", "decimals": 0, "type": "bar", "axis": "left", "color": "#0E2841", "axisTitle": "# Orders" },
+        { "label": "Average time (Days)", "agg": "avg", "field": "Total Delivery time", "unit": "days", "decimals": 1, "type": "line", "axis": "right", "color": "#E97132", "axisTitle": "Days" }
+      ]
+    },
+    {
+      "id": "avg-time-omni-aog",
+      "title": "Average Time of Deliveries - FSL 2026 (AOG)",
+      "subtitle": "OMNI · Prioridade AOG",
+      "width": "half",
+      "groupBy": "Mês",
+      "sort": "key",
+      "topN": 0,
+      "showLabels": true,
+      "horizontal": false,
+      "filters": [
+        { "field": "Ship To Party Name", "mode": "include", "values": ["OMN"] },
+        { "field": "Priority", "mode": "include", "values": ["AOG"] }
+      ],
+      "series": [
+        { "label": "#of orders", "agg": "count", "field": null, "unit": "number", "decimals": 0, "type": "bar", "axis": "left", "color": "#0E2841", "axisTitle": "# Orders" },
+        { "label": "Average time (hours)", "agg": "avg", "field": "Total Delivery time", "unit": "hhmm", "decimals": 0, "type": "line", "axis": "right", "color": "#E97132", "axisTitle": "h:mm" }
+      ]
+    },
+    {
+      "id": "total-usd",
+      "title": "Total USD of Deliveries - FSL 2026",
+      "subtitle": "Todos os clientes · todas as prioridades",
+      "width": "full",
+      "groupBy": "Mês",
+      "sort": "key",
+      "topN": 0,
+      "showLabels": true,
+      "horizontal": false,
+      "filters": [
+        { "field": "Priority", "mode": "exclude", "values": ["(vazio)"] }
+      ],
+      "series": [
+        { "label": "#orders", "agg": "count", "field": null, "unit": "number", "decimals": 0, "type": "bar", "axis": "left", "color": "#0E2841", "axisTitle": "# Orders" },
+        { "label": "Orders Value - USD", "agg": "sum", "field": "Total Shipment Value", "unit": "usd_m", "decimals": 3, "type": "line", "axis": "right", "color": "#E97132", "axisTitle": "Millions USD" }
+      ]
+    }
+  ]
+}
