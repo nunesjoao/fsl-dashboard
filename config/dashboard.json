@@ -16,12 +16,45 @@
       "showLabels": true,
       "horizontal": false,
       "filters": [
-        { "field": "Ship To Party Name", "mode": "include", "values": ["OMN"] },
-        { "field": "Priority", "mode": "exclude", "values": ["AOG", "(vazio)"] }
+        {
+          "field": "Ship To Party Name",
+          "mode": "include",
+          "values": [
+            "OMN"
+          ]
+        },
+        {
+          "field": "Priority",
+          "mode": "exclude",
+          "values": [
+            "AOG",
+            "(vazio)"
+          ]
+        }
       ],
       "series": [
-        { "label": "#of orders", "agg": "count", "field": null, "unit": "number", "decimals": 0, "type": "bar", "axis": "left", "color": "#0E2841", "axisTitle": "# Orders" },
-        { "label": "Average time (Days)", "agg": "avg", "field": "Total Delivery time", "unit": "days", "decimals": 1, "type": "line", "axis": "right", "color": "#E97132", "axisTitle": "Days" }
+        {
+          "label": "#of orders",
+          "agg": "count",
+          "field": null,
+          "unit": "number",
+          "decimals": 0,
+          "type": "bar",
+          "axis": "left",
+          "color": "#0E2841",
+          "axisTitle": "# Orders"
+        },
+        {
+          "label": "Average time (Days)",
+          "agg": "avg",
+          "field": "Total Delivery time",
+          "unit": "days",
+          "decimals": 1,
+          "type": "line",
+          "axis": "right",
+          "color": "#E97132",
+          "axisTitle": "Days"
+        }
       ]
     },
     {
@@ -35,12 +68,44 @@
       "showLabels": true,
       "horizontal": false,
       "filters": [
-        { "field": "Ship To Party Name", "mode": "include", "values": ["OMN"] },
-        { "field": "Priority", "mode": "include", "values": ["AOG"] }
+        {
+          "field": "Ship To Party Name",
+          "mode": "include",
+          "values": [
+            "OMN"
+          ]
+        },
+        {
+          "field": "Priority",
+          "mode": "include",
+          "values": [
+            "AOG"
+          ]
+        }
       ],
       "series": [
-        { "label": "#of orders", "agg": "count", "field": null, "unit": "number", "decimals": 0, "type": "bar", "axis": "left", "color": "#0E2841", "axisTitle": "# Orders" },
-        { "label": "Average time (hours)", "agg": "avg", "field": "Total Delivery time", "unit": "hhmm", "decimals": 0, "type": "line", "axis": "right", "color": "#E97132", "axisTitle": "h:mm" }
+        {
+          "label": "#of orders",
+          "agg": "count",
+          "field": null,
+          "unit": "number",
+          "decimals": 0,
+          "type": "bar",
+          "axis": "left",
+          "color": "#0E2841",
+          "axisTitle": "# Orders"
+        },
+        {
+          "label": "Average time (hours)",
+          "agg": "avg",
+          "field": "Total Delivery time",
+          "unit": "hhmm",
+          "decimals": 0,
+          "type": "line",
+          "axis": "right",
+          "color": "#E97132",
+          "axisTitle": "h:mm"
+        }
       ]
     },
     {
@@ -54,11 +119,85 @@
       "showLabels": true,
       "horizontal": false,
       "filters": [
-        { "field": "Priority", "mode": "exclude", "values": ["(vazio)"] }
+        {
+          "field": "Priority",
+          "mode": "exclude",
+          "values": [
+            "(vazio)"
+          ]
+        }
       ],
       "series": [
-        { "label": "#orders", "agg": "count", "field": null, "unit": "number", "decimals": 0, "type": "bar", "axis": "left", "color": "#0E2841", "axisTitle": "# Orders" },
-        { "label": "Orders Value - USD", "agg": "sum", "field": "Total Shipment Value", "unit": "usd_m", "decimals": 3, "type": "line", "axis": "right", "color": "#E97132", "axisTitle": "Millions USD" }
+        {
+          "label": "#orders",
+          "agg": "count",
+          "field": null,
+          "unit": "number",
+          "decimals": 0,
+          "type": "bar",
+          "axis": "left",
+          "color": "#0E2841",
+          "axisTitle": "# Orders"
+        },
+        {
+          "label": "Orders Value - USD",
+          "agg": "sum",
+          "field": "Total Shipment Value",
+          "unit": "usd_m",
+          "decimals": 3,
+          "type": "line",
+          "axis": "right",
+          "color": "#E97132",
+          "axisTitle": "Millions USD"
+        }
+      ]
+    },
+    {
+      "id": "avg-time-operator",
+      "title": "Average Time by Operator - FSL 2026",
+      "subtitle": "Todos os atendimentos · 8 operadoras com mais pedidos (demais em Outros)",
+      "width": "full",
+      "groupBy": "Ship To Party Name",
+      "sort": "count",
+      "topN": 8,
+      "topBy": "count",
+      "showLabels": true,
+      "horizontal": true,
+      "filters": [],
+      "series": [
+        {
+          "label": "Total Delivery time",
+          "agg": "avg",
+          "field": "Total Delivery time",
+          "unit": "days",
+          "decimals": 1,
+          "type": "bar",
+          "axis": "left",
+          "color": "#0E2841",
+          "axisTitle": "Days"
+        },
+        {
+          "label": "FSL Processing Time",
+          "agg": "avg",
+          "field": "FSL Processing Time",
+          "unit": "days",
+          "decimals": 1,
+          "type": "bar",
+          "axis": "left",
+          "color": "#0F9ED5",
+          "axisTitle": ""
+        },
+        {
+          "label": "Customer pickup time",
+          "agg": "avg",
+          "field": "Customer pickup time",
+          "unit": "days",
+          "decimals": 1,
+          "type": "bar",
+          "axis": "left",
+          "color": "#E97132",
+          "axisTitle": ""
+        }
       ]
     }
   ]

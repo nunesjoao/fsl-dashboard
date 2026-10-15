@@ -40,7 +40,13 @@ const EMBEDDED_DEFAULT = {
       filters: [{ field: 'Priority', mode: 'exclude', values: [BLANK] }],
       series: [
         { label: '#orders', agg: 'count', field: null, unit: 'number', decimals: 0, type: 'bar', axis: 'left', color: '#0E2841', axisTitle: '# Orders' },
-        { label: 'Orders Value - USD', agg: 'sum', field: 'Total Shipment Value', unit: 'usd_m', decimals: 3, type: 'line', axis: 'right', color: '#E97132', axisTitle: 'Millions USD' }] }
+        { label: 'Orders Value - USD', agg: 'sum', field: 'Total Shipment Value', unit: 'usd_m', decimals: 3, type: 'line', axis: 'right', color: '#E97132', axisTitle: 'Millions USD' }] },
+    { id: 'avg-time-operator', title: 'Average Time by Operator - FSL 2026', subtitle: 'Todos os atendimentos · 8 operadoras com mais pedidos (demais em Outros)', width: 'full', groupBy: 'Ship To Party Name', sort: 'count', topN: 8, topBy: 'count', showLabels: true, horizontal: true,
+      filters: [],
+      series: [
+        { label: 'Total Delivery time', agg: 'avg', field: 'Total Delivery time', unit: 'days', decimals: 1, type: 'bar', axis: 'left', color: '#0E2841', axisTitle: 'Days' },
+        { label: 'FSL Processing Time', agg: 'avg', field: 'FSL Processing Time', unit: 'days', decimals: 1, type: 'bar', axis: 'left', color: '#0F9ED5', axisTitle: '' },
+        { label: 'Customer pickup time', agg: 'avg', field: 'Customer pickup time', unit: 'days', decimals: 1, type: 'bar', axis: 'left', color: '#E97132', axisTitle: '' }] }
   ]
 };
 
@@ -315,12 +321,14 @@ function aggregate(ch) {
   let keys = [...g.keys()];
   const s0 = ch.series[0];
   const primary = new Map(keys.map(k => [k, aggValue(g.get(k), s0) ?? -Infinity]));
+  const rank = k => ch.topBy === 'count' ? g.get(k).length : primary.get(k);
   if (ch.topN > 0 && keys.length > ch.topN) {
-    const top = [...keys].sort((a, b) => primary.get(b) - primary.get(a)).slice(0, ch.topN);
+    const top = [...keys].sort((a, b) => rank(b) - rank(a)).slice(0, ch.topN);
     const rest = []; keys.filter(k => !top.includes(k)).forEach(k => rest.push(...g.get(k)));
     keys = top; if (rest.length) { g.set(OTHERS, rest); keys.push(OTHERS); primary.set(OTHERS, -Infinity); }
   }
   if (ch.sort === 'desc') keys.sort((a, b) => (a === OTHERS) - (b === OTHERS) || primary.get(b) - primary.get(a));
+  else if (ch.sort === 'count') keys.sort((a, b) => (a === OTHERS) - (b === OTHERS) || g.get(b).length - g.get(a).length);
   else if (ch.sort === 'asc') keys.sort((a, b) => (a === OTHERS) - (b === OTHERS) || primary.get(a) - primary.get(b));
   else keys.sort((a, b) => cmpKeys(a, b, ch.groupBy));
   const raw = ch.series.map(s => keys.map(k => aggValue(g.get(k), s)));
@@ -330,7 +338,7 @@ function aggregate(ch) {
     return toPlot(v, s.unit);
   }));
   const totalsPlot = ch.series.map((s, i) => s.unit === 'pct' ? (totals[i] ? 100 : null) : toPlot(totals[i], s.unit));
-  return { keys, labels: keys.map(k => labelOf(k, ch.groupBy)), data, totals: totalsPlot, n: rows.length };
+  return { keys, labels: keys.map(k => labelOf(k, ch.groupBy)), data, totals: totalsPlot, n: rows.length, counts: keys.map(k => g.get(k).length) };
 }
 
 // ---------------------------------------------------------------- Chart.js
@@ -418,6 +426,7 @@ function chartConfig(ch, ag, forExport) {
         tooltip: {
           backgroundColor: cssVar('--surface'), titleColor: ink, bodyColor: ink2, footerColor: ink3, borderColor: cssVar('--border'), borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
           callbacks: {
+            footer: items => items.length ? `${fmtN(ag.counts[items[0].dataIndex])} pedidos` : '',
             label: c => { const s = ch.series[c.datasetIndex]; const v = c.raw; const b = brlNote(v, s.unit); return ` ${s.label}: ${fmtLong(v, s.unit, s.decimals ?? 0)}${b ? '  (' + b + ')' : ''}`; }
           }
         }
@@ -512,9 +521,9 @@ function cardHTML(ch) {
 }
 
 function tableHTML(ch, ag) {
-  const head = `<tr><th>${esc(ch.groupBy)}</th>${ch.series.map(s => `<th class="num">${esc(s.label)}</th>`).join('')}</tr>`;
-  const body = ag.labels.map((l, i) => `<tr><td>${esc(l)}</td>${ch.series.map((s, j) => `<td class="num">${esc(fmtLong(ag.data[j][i], s.unit, s.decimals ?? 0))}</td>`).join('')}</tr>`).join('');
-  const tot = `<tr class="total"><td>Total geral</td>${ch.series.map((s, j) => `<td class="num">${esc(fmtLong(ag.totals[j], s.unit, s.decimals ?? 0))}</td>`).join('')}</tr>`;
+  const head = `<tr><th>${esc(ch.groupBy)}</th><th class="num">Pedidos</th>${ch.series.map(s => `<th class="num">${esc(s.label)}</th>`).join('')}</tr>`;
+  const body = ag.labels.map((l, i) => `<tr><td>${esc(l)}</td><td class="num">${fmtN(ag.counts[i])}</td>${ch.series.map((s, j) => `<td class="num">${esc(fmtLong(ag.data[j][i], s.unit, s.decimals ?? 0))}</td>`).join('')}</tr>`).join('');
+  const tot = `<tr class="total"><td>Total geral</td><td class="num">${fmtN(ag.n)}</td>${ch.series.map((s, j) => `<td class="num">${esc(fmtLong(ag.totals[j], s.unit, s.decimals ?? 0))}</td>`).join('')}</tr>`;
   return `<table class="tbl">${head}${body}${tot}</table>`;
 }
 
@@ -526,6 +535,7 @@ function renderGrid() {
     const card = grid.querySelector(`[data-id="${CSS.escape(ch.id)}"]`);
     try {
       const ag = aggregate(ch);
+      if (ch.horizontal) card.querySelector('.chartbox').style.height = Math.max(340, ag.keys.length * (ch.series.length * 12 + 18) + 90) + 'px';
       S.charts[ch.id] = new Chart(card.querySelector('canvas'), chartConfig(ch, ag));
       card.querySelector('.tablewrap').innerHTML = tableHTML(ch, ag);
     } catch (e) {
@@ -694,8 +704,9 @@ function drawEditor() {
     <label class="fld"><span>Subtítulo / descrição</span><input data-p="subtitle" value="${esc(E.subtitle || '')}"></label>
     <div class="g2">
       <label class="fld"><span>Agrupar por (eixo)</span><select data-p="groupBy">${groupFields.map(h => opt(h, h + (S.info[h].categorical ? '' : ' (muitos valores)'), E.groupBy)).join('')}</select></label>
-      <label class="fld"><span>Ordenar por</span><select data-p="sort">${opt('key', 'Categoria', E.sort)}${opt('desc', 'Valor (maior primeiro)', E.sort)}${opt('asc', 'Valor (menor primeiro)', E.sort)}</select></label>
+      <label class="fld"><span>Ordenar por</span><select data-p="sort">${opt('key', 'Categoria', E.sort)}${opt('desc', 'Valor (maior primeiro)', E.sort)}${opt('asc', 'Valor (menor primeiro)', E.sort)}${opt('count', 'Nº de pedidos (maior primeiro)', E.sort)}</select></label>
       <label class="fld"><span>Mostrar só os N maiores (0 = todos)</span><input type="number" min="0" data-p="topN" value="${E.topN || 0}"></label>
+      <label class="fld"><span>N maiores por</span><select data-p="topBy">${opt('value', 'Valor da 1ª série', E.topBy || 'value')}${opt('count', 'Nº de pedidos', E.topBy || 'value')}</select></label>
       <label class="fld"><span>Largura</span><select data-p="width">${opt('half', 'Meia largura', E.width)}${opt('full', 'Largura inteira', E.width)}</select></label>
     </div>
     <label class="fld inline"><input type="checkbox" data-p="showLabels" ${E.showLabels ? 'checked' : ''}> Rótulos de dados</label>
