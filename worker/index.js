@@ -53,11 +53,17 @@ async function handleLogin(request, env, url) {
 
 async function handleSetup(request, env, url) {
   if (await hasUsers(env)) return redirect('/login');
-  // aceita variações no nome (espaços, minúsculas) e ignora espaços no valor
+  // aceita variações no nome e secret tanto de texto quanto da Secrets Store (objeto com .get())
   const key = Object.keys(env).find(k => k.replace(/[^a-z]/gi, '').toUpperCase() === 'ADMINSETUPCODE');
-  const code = key && typeof env[key] === 'string' ? env[key].trim() : '';
+  let code = '';
+  if (key) {
+    const v = env[key];
+    if (typeof v === 'string') code = v.trim();
+    else if (v && typeof v.get === 'function') { try { code = String(await v.get() || '').trim(); } catch {} }
+  }
   if (!code) {
-    const names = Object.keys(env).filter(k => typeof env[k] === 'string');   // só nomes de variáveis/secrets, nunca valores
+    // diagnóstico: apenas nomes e tipos dos vínculos, nunca valores
+    const names = Object.keys(env).map(k => `${k} (${typeof env[k] === 'string' ? 'texto' : 'vínculo'})`);
     return html(setupPage({ disabled: true, envNames: names }), 503);
   }
   if (request.method === 'GET') return html(setupPage());
