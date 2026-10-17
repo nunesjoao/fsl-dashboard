@@ -39,7 +39,7 @@ export function setupPage({ error = '', email = '', name = '', disabled = false,
   if (disabled) return shell('Configuração', `
 <h1>Configuração inicial</h1>
 <div class="err">O código de configuração (ADMIN_SETUP_CODE) não chegou ao Worker.
-Defina-o em <b>Settings → Variables and Secrets</b> (não em <i>Build</i>) como <i>Secret</i>, clique em <b>Deploy</b> e recarregue esta página.</div>
+Defina-o em <b>Settings → Runtime variables and secrets</b> (não em <i>Builds</i>) como <i>Secret</i>, clique em <b>Deploy</b> e recarregue esta página.</div>
 <p class="hint" style="margin-top:14px">Variáveis que o Worker está recebendo agora:
 <b>${envNames.length ? envNames.map(esc).join(', ') : 'nenhuma'}</b></p>`);
   return shell('Configuração', `

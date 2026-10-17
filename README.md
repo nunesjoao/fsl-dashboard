@@ -74,7 +74,7 @@ O mesmo código continua funcionando no GitHub Pages, no modo local e sem login.
 1. O Worker `fsl-dashboard` já está ligado a este repositório pelo *Workers Builds*: cada push na `main` faz o deploy.
    - Em *Settings → Build*, o *Build command* fica vazio e o *Deploy command* é `npx wrangler deploy`.
 2. O KV `fsl-dashboard` já está vinculado como `DASH_KV` em `wrangler.jsonc`.
-3. No Worker, abra *Settings → Variables and Secrets → Add*.
+3. No Worker, abra *Settings → Runtime variables and secrets* (aba *Production*) → *Add variable*. Não use o bloco *Builds → Variables and secrets*, que só vale durante o build.
    - Tipo **Secret**, nome **`ADMIN_SETUP_CODE`**, valor: um código que só você conheça.
 4. Abra o site. Ele mostra a tela de configuração inicial: informe o código, seu nome, e-mail e senha.
    - Essa tela só funciona enquanto não houver nenhum usuário.
