@@ -58,7 +58,8 @@ const S = {
   charts: {}, preview: null,
   rate: null, rateSrc: '',
   dataPage: 0, dataQuery: '',
-  edit: null, editIsNew: false, globalDraft: null
+  edit: null, editIsNew: false, globalDraft: null,
+  cloud: null            // { email } quando o site roda no Cloudflare Pages com Access
 };
 
 // ---------------------------------------------------------------- utilidades
@@ -77,6 +78,39 @@ function lsSet(k, v) { try { v == null ? localStorage.removeItem(k) : localStora
 function toast(msg, ms = 3200) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, ms);
+}
+
+// ---------------------------------------------------------------- API (modo nuvem: Cloudflare Pages + Access)
+class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+async function api(path, opts = {}) {
+  let r;
+  try { r = await fetch(path, { credentials: 'same-origin', redirect: 'manual', cache: 'no-store', ...opts }); }
+  catch (e) { throw new ApiError(0, 'Sem conexão com o servidor.'); }
+  if (r.type === 'opaqueredirect' || r.status === 401 || r.status === 403) throw new ApiError(401, 'Sessão expirada — recarregue a página para entrar novamente.');
+  if (!r.ok) { let m = r.status + ''; try { m = (await r.json()).error || m; } catch {} throw new ApiError(r.status, m); }
+  return r;
+}
+async function detectCloud() {
+  if (location.protocol === 'file:') return null;
+  try {
+    const r = await fetch('api/me', { credentials: 'same-origin', redirect: 'manual', cache: 'no-store' });
+    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return null;
+    const j = await r.json();
+    return j && j.email ? j : null;
+  } catch { return null; }
+}
+function setSync(t) { const el = $('#syncState'); if (el) el.textContent = t; }
+let pushTimer = null;
+function pushLayoutSoon() {
+  if (!S.cloud) return;
+  clearTimeout(pushTimer); setSync('salvando…');
+  pushTimer = setTimeout(async () => {
+    try {
+      const c = clone(S.cfg);
+      await api('api/layout', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(c) });
+      setSync('salvo');
+    } catch (e) { setSync('não salvo'); toast('Layout não foi salvo na nuvem: ' + e.message, 6000); }
+  }, 1200);
 }
 
 function idb() {
@@ -449,7 +483,8 @@ function renderAll() {
 function renderInfo() {
   const m = S.meta || {};
   const when = m.date ? new Date(m.date).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : '';
-  $('#dataInfo').textContent = `${m.name || ''} · aba ${S.sheet} · ${fmtN(S.rows.length)} linhas${when ? ' · ' + when : ''}`;
+  const by = m.uploadedBy ? ' por ' + m.uploadedBy : '';
+  $('#dataInfo').textContent = `${m.name || ''} · aba ${S.sheet} · ${fmtN(S.rows.length)} linhas${when ? ' · ' + when : ''}${by}`;
 }
 
 function renderGlobalChips() {
@@ -792,7 +827,14 @@ function loadCfg() {
   if (c && Array.isArray(c.charts)) return c;
   const d = clone(S.repoCfg); d._base = S.repoHash; return d;
 }
-function saveCfg() { if (!S.cfg._base && S.repoHash) S.cfg._base = S.repoHash; lsSet(LS_CFG, JSON.stringify(S.cfg)); }
+function saveCfg() { if (!S.cfg._base && S.repoHash) S.cfg._base = S.repoHash; lsSet(LS_CFG, JSON.stringify(S.cfg)); pushLayoutSoon(); }
+async function loadCloudCfg() {
+  try {
+    const j = await (await api('api/layout')).json();
+    if (j && j.layout && Array.isArray(j.layout.charts)) { lsSet(LS_CFG, JSON.stringify(j.layout)); return j.layout; }
+  } catch (e) { toast('Não foi possível ler seu layout salvo: ' + e.message, 6000); }
+  return null;
+}
 function exportCfg() {
   const c = clone(S.cfg); delete c._base;
   const blob = new Blob([JSON.stringify(c, null, 2)], { type: 'application/json' });
@@ -825,7 +867,16 @@ async function importFile(file) {
   if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) { toast('Selecione um arquivo .xlsx'); return; }
   try {
     const buf = await file.arrayBuffer();
-    await loadWorkbook(buf, { name: file.name, date: Date.now(), source: 'navegador' });
+    await loadWorkbook(buf, { name: file.name, date: Date.now(), source: S.cloud ? 'nuvem' : 'navegador', uploadedBy: S.cloud ? S.cloud.email : null });
+    if (S.cloud) {
+      showDash(); renderAll();
+      toast('Enviando planilha para a nuvem…', 10000);
+      try {
+        await api('api/sheet', { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name), 'x-rows': String(S.rows.length) }, body: buf });
+        toast(`Planilha salva na nuvem (${fmtN(S.rows.length)} linhas) — agora vale para toda a equipe.`, 5000);
+      } catch (e) { S.meta.source = 'navegador'; await idbPut({ name: file.name, date: Date.now(), buf }); toast('Planilha carregada só neste navegador; falhou o envio: ' + e.message, 8000); }
+      return;
+    }
     await idbPut({ name: file.name, date: Date.now(), buf });
     showDash(); renderAll();
     toast(`Planilha importada: ${fmtN(S.rows.length)} linhas da aba ${S.sheet}.`);
@@ -903,7 +954,13 @@ function bind() {
     $('#setSheet').innerHTML = (S.wb ? S.wb.SheetNames : [S.cfg.sheet || 'Data']).map(n => opt(n, n, S.sheet || S.cfg.sheet)).join('');
     $('#setRate').value = isNum(S.cfg.usdbrl) ? S.cfg.usdbrl : '';
     const m = S.meta;
-    $('#setDataInfo').textContent = m ? `Arquivo atual: ${m.name} (${m.source === 'repositório' ? 'publicado no repositório' : 'salvo neste navegador'}).` : 'Nenhuma planilha carregada.';
+    const srcTxt = { 'repositório': 'publicado no repositório', 'nuvem': 'salvo na nuvem, compartilhado com a equipe', 'navegador': 'salvo só neste navegador' }[m && m.source] || '';
+    $('#setDataInfo').textContent = m ? `Arquivo atual: ${m.name} (${srcTxt})${m.uploadedBy ? ' — enviado por ' + m.uploadedBy : ''}${m.date ? ' em ' + new Date(m.date).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : ''}.` : 'Nenhuma planilha carregada.';
+    $('#btnClearData').hidden = !!S.cloud;
+    const rb = $('#btnRestoreSheet'); rb.hidden = true;
+    if (S.cloud) api('api/sheet?meta=1').then(r => r.json()).then(j => {
+      if (j.previous) { rb.hidden = false; rb.textContent = `Restaurar versão anterior (${j.previous.name || 'planilha'}${j.previous.uploadedAt ? ', ' + new Date(j.previous.uploadedAt).toLocaleDateString(LOCALE) : ''})`; }
+    }).catch(() => {});
     $('#dlgSettings').showModal();
   };
   $('#btnSaveSettings').onclick = async () => {
@@ -918,6 +975,11 @@ function bind() {
     if (!confirm('Remover a planilha salva neste navegador?')) return;
     await idbDel(); $('#dlgSettings').close(); location.reload();
   };
+  $('#btnRestoreSheet').onclick = async () => {
+    if (!confirm('Restaurar a versão anterior da planilha para toda a equipe?')) return;
+    try { await api('api/sheet?action=restore', { method: 'POST' }); $('#dlgSettings').close(); await loadCloudSheet(); renderAll(); toast('Versão anterior restaurada.'); }
+    catch (e) { toast('Falha ao restaurar: ' + e.message, 6000); }
+  };
   $('#btnExportCfg').onclick = exportCfg;
   $('#btnImportCfg').onclick = () => $('#cfgInput').click();
   $('#cfgInput').onchange = async e => {
@@ -928,24 +990,53 @@ function bind() {
   $('#btnResetCfg').onclick = () => {
     if (!confirm('Descartar as personalizações deste navegador e voltar ao layout publicado?')) return;
     lsSet(LS_CFG, null); S.cfg = loadCfg(); $('#dlgSettings').close(); renderAll(); toast('Layout padrão restaurado.');
+    if (S.cloud) api('api/layout', { method: 'DELETE' }).then(() => setSync('salvo')).catch(e => toast('Falha ao limpar layout na nuvem: ' + e.message));
   };
 
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => Object.values(S.charts).forEach(c => c.resize()), 150); });
 }
 
 // ---------------------------------------------------------------- início
+async function loadCloudSheet() {
+  try {
+    const r = await api('api/sheet');
+    let meta = {}; try { meta = JSON.parse(decodeURIComponent(r.headers.get('x-sheet-meta') || '%7B%7D')); } catch {}
+    await loadWorkbook(await r.arrayBuffer(), { name: meta.name || 'planilha.xlsx', date: meta.uploadedAt || meta.restoredAt, uploadedBy: meta.uploadedBy, source: 'nuvem' });
+    return true;
+  } catch (e) {
+    if (e.status !== 404) toast('Não foi possível baixar a planilha da nuvem: ' + e.message, 6000);
+    return false;
+  }
+}
+
+function setupCloudUI() {
+  $('#userBox').hidden = false;
+  $('#userEmail').textContent = S.cloud.email;
+  if (S.cloud.logoutUrl) $('#btnLogout').href = S.cloud.logoutUrl;
+  $('#emptyNote').textContent = 'A planilha importada fica salva na nuvem e passa a valer para toda a equipe. Seu layout de gráficos é salvo na sua conta.';
+  $('#layoutNote').textContent = 'Suas personalizações ficam salvas na sua conta e aparecem em qualquer computador. Para mudar o padrão de quem ainda não personalizou, exporte o JSON e substitua config/dashboard.json no repositório.';
+}
+
 async function init() {
   applyTheme();
-  await loadRepoCfg();
-  S.cfg = loadCfg();
+  const [, cloud] = await Promise.all([loadRepoCfg(), detectCloud()]);
+  S.cloud = cloud;
+  if (S.cloud) {
+    setupCloudUI();
+    const remote = await loadCloudCfg();
+    S.cfg = remote || loadCfg();
+  } else S.cfg = loadCfg();
   bind();
   const ratePromise = fetchRate();
   try {
+    if (S.cloud && await loadCloudSheet()) { /* planilha compartilhada carregada */ }
+    else {
     const saved = await idbGet();
     if (saved && saved.buf) await loadWorkbook(saved.buf, { name: saved.name, date: saved.date, source: 'navegador' });
     else {
       const r = await fetch('data/shipments.xlsx', { cache: 'no-cache' }).catch(() => null);
       if (r && r.ok) await loadWorkbook(await r.arrayBuffer(), { name: 'data/shipments.xlsx', date: r.headers.get('last-modified'), source: 'repositório' });
+    }
     }
   } catch (e) { console.error(e); toast('Não foi possível ler a planilha salva: ' + e.message, 6000); }
   if (!S.rows.length) { showEmpty(); return; }

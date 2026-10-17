@@ -22,6 +22,11 @@
     <button class="btn" id="btnAddChart">+ Gráfico</button>
     <button class="btn" id="btnSettings">Configurações</button>
     <button class="btn icon" id="btnTheme" title="Alternar tema claro/escuro">Tema</button>
+    <span id="userBox" class="userbox" hidden>
+      <span id="userEmail" class="mono"></span>
+      <span id="syncState" class="muted"></span>
+      <a class="btn" id="btnLogout" href="/cdn-cgi/access/logout">Sair</a>
+    </span>
   </nav>
   <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls" hidden>
 </header>
@@ -31,7 +36,7 @@
     <div class="dropzone" id="dropzone">
       <h2>Importe a planilha de shipments</h2>
       <p>Arraste o arquivo <span class="mono">.xlsx</span> aqui ou clique para selecionar.<br>
-      A leitura acontece no seu navegador; nenhum dado é enviado para servidor.</p>
+      <span id="emptyNote">A leitura acontece no seu navegador; nenhum dado é enviado para servidor.</span></p>
       <button class="btn primary" id="btnImport2">Selecionar arquivo</button>
     </div>
   </section>
@@ -103,9 +108,12 @@
     <label class="fld"><span>Cotação USD→BRL (vazio = automática)</span><input id="setRate" type="number" step="0.0001" placeholder="automática"></label>
     <h3>Fonte de dados</h3>
     <p class="muted" id="setDataInfo"></p>
-    <div class="row"><button class="btn" type="button" id="btnClearData">Remover dados salvos neste navegador</button></div>
+    <div class="row">
+      <button class="btn" type="button" id="btnClearData">Remover dados salvos neste navegador</button>
+      <button class="btn" type="button" id="btnRestoreSheet" hidden>Restaurar versão anterior da planilha</button>
+    </div>
     <h3>Layout</h3>
-    <p class="muted">As personalizações ficam salvas neste navegador. Para publicar para todos, exporte o JSON e substitua <span class="mono">config/dashboard.json</span> no repositório.</p>
+    <p class="muted" id="layoutNote">As personalizações ficam salvas neste navegador. Para publicar para todos, exporte o JSON e substitua <span class="mono">config/dashboard.json</span> no repositório.</p>
     <div class="row">
       <button class="btn" type="button" id="btnExportCfg">Exportar layout (JSON)</button>
       <button class="btn" type="button" id="btnImportCfg">Importar layout</button>
