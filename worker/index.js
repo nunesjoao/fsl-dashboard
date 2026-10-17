@@ -53,14 +53,19 @@ async function handleLogin(request, env, url) {
 
 async function handleSetup(request, env, url) {
   if (await hasUsers(env)) return redirect('/login');
-  const code = env.ADMIN_SETUP_CODE;
-  if (!code) return html(setupPage({ disabled: true }), 503);
+  // aceita variações no nome (espaços, minúsculas) e ignora espaços no valor
+  const key = Object.keys(env).find(k => k.replace(/[^a-z]/gi, '').toUpperCase() === 'ADMINSETUPCODE');
+  const code = key && typeof env[key] === 'string' ? env[key].trim() : '';
+  if (!code) {
+    const names = Object.keys(env).filter(k => typeof env[k] === 'string');   // só nomes de variáveis/secrets, nunca valores
+    return html(setupPage({ disabled: true, envNames: names }), 503);
+  }
   if (request.method === 'GET') return html(setupPage());
   if (request.method !== 'POST' || !sameOrigin(request, url)) return html('Requisição inválida', 400);
   const f = await form(request);
   const email = normEmail(f.email), name = String(f.name || '').trim().slice(0, 100);
   const back = error => html(setupPage({ error, email, name }), 400);
-  if ((f.code || '') !== String(code)) { await new Promise(r => setTimeout(r, 800)); return back('Código de configuração incorreto.'); }
+  if ((f.code || '').trim() !== code) { await new Promise(r => setTimeout(r, 800)); return back('Código de configuração incorreto.'); }
   if (!validEmail(email)) return back('E-mail inválido.');
   const p = passwordProblem(f.password); if (p) return back(p);
   if (f.password !== f.password2) return back('As senhas não conferem.');

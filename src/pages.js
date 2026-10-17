@@ -35,11 +35,13 @@ ${error ? `<div class="err" role="alert">${esc(error)}</div>` : ''}
 <p class="hint" style="margin-top:16px">Esqueceu a senha? Peça ao administrador para redefinir.</p>`);
 }
 
-export function setupPage({ error = '', email = '', name = '', disabled = false } = {}) {
+export function setupPage({ error = '', email = '', name = '', disabled = false, envNames = [] } = {}) {
   if (disabled) return shell('Configuração', `
 <h1>Configuração inicial</h1>
-<div class="err">O código de configuração (ADMIN_SETUP_CODE) não foi definido no Worker.
-Defina-o em <b>Settings → Variables and Secrets</b> como <i>Secret</i> e recarregue esta página.</div>`);
+<div class="err">O código de configuração (ADMIN_SETUP_CODE) não chegou ao Worker.
+Defina-o em <b>Settings → Variables and Secrets</b> (não em <i>Build</i>) como <i>Secret</i>, clique em <b>Deploy</b> e recarregue esta página.</div>
+<p class="hint" style="margin-top:14px">Variáveis que o Worker está recebendo agora:
+<b>${envNames.length ? envNames.map(esc).join(', ') : 'nenhuma'}</b></p>`);
   return shell('Configuração', `
 <h1>Configuração inicial</h1><p class="sub">Crie a conta do administrador. Esta tela só funciona enquanto não houver nenhum usuário cadastrado.</p>
 ${error ? `<div class="err" role="alert">${esc(error)}</div>` : ''}
