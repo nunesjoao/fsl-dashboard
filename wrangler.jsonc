@@ -1,0 +1,20 @@
+// Configuração do Cloudflare Workers (deploy automático pelo Workers Builds a cada push na main)
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fsl-dashboard",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  // Variáveis ACCESS_TEAM_DOMAIN e ACCESS_AUD são definidas no painel (Settings → Variables and Secrets)
+  "keep_vars": true,
+  // KV para layouts e planilha — o "id" vem de Storage & Databases → KV (descomente quando tiver o ID)
+  // "kv_namespaces": [
+  //   { "binding": "DASH_KV", "id": "ID_DO_NAMESPACE" }
+  // ],
+  "observability": { "enabled": true }
+}

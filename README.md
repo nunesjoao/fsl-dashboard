@@ -75,7 +75,23 @@ Cada chamada a `/api/*` confere no servidor o token do Access (`Cf-Access-Jwt-As
 assinatura RS256 com as chaves públicas do time, AUD da aplicação, emissor e validade.
 Sem token válido a API responde 401, e não há como acessá-la sem passar pelo login.
 
-### Passo a passo (uma vez só)
+### Hospedagem como Worker (workers.dev) — configuração atual
+
+O projeto também roda como **Cloudflare Worker** com arquivos estáticos (`wrangler.jsonc` + `worker/index.js`),
+que é o que o botão *Create* do painel cria hoje. O deploy é automático a cada push na `main` (Workers Builds).
+
+1. **Criar o KV.** Vá em *Storage & Databases → KV → Create*, dê o nome `fsl-dashboard` e copie o **ID** do namespace.
+   Coloque o ID em `wrangler.jsonc`, no bloco `kv_namespaces`, com o binding `DASH_KV`.
+2. **Ativar o Access.** No Worker, abra *Settings → Domains & Routes*. Na linha `workers.dev`, ative **Cloudflare Access**.
+   - Depois clique em *Manage Cloudflare Access* e, na policy, inclua os e-mails autorizados.
+   - Desative os *Preview URLs*, ou proteja-os também.
+3. **Configurar as variáveis.** Em *Settings → Variables and Secrets*, crie:
+   - `ACCESS_TEAM_DOMAIN` (ex.: `fslteam.cloudflareaccess.com`)
+   - `ACCESS_AUD` (o *AUD tag* da aplicação criada no Access)
+
+   O `keep_vars: true` em `wrangler.jsonc` evita que o deploy apague essas variáveis.
+
+### Passo a passo — alternativa com Cloudflare Pages
 
 1. **Criar o projeto Pages.** No painel da Cloudflare, abra *Workers & Pages → Create → Pages → Connect to Git* e escolha `nunesjoao/fsl-dashboard`.
    - *Framework preset*: `None`. *Build command*: vazio. *Build output directory*: `/`.
