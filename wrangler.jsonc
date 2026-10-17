@@ -12,9 +12,9 @@
   },
   // Variáveis ACCESS_TEAM_DOMAIN e ACCESS_AUD são definidas no painel (Settings → Variables and Secrets)
   "keep_vars": true,
-  // KV para layouts e planilha — o "id" vem de Storage & Databases → KV (descomente quando tiver o ID)
-  // "kv_namespaces": [
-  //   { "binding": "DASH_KV", "id": "ID_DO_NAMESPACE" }
-  // ],
+  // KV "fsl-dashboard": layouts por usuário e planilha compartilhada
+  "kv_namespaces": [
+    { "binding": "DASH_KV", "id": "283a30bc84b64876b743806455e33524" }
+  ],
   "observability": { "enabled": true }
 }
