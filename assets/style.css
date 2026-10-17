@@ -127,7 +127,10 @@ main{padding:20px 24px 48px;max-width:1600px;margin:0 auto}
 .ed-sec>.ed-sec-h h4{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px}
-.g2>*,.g3>*{min-width:0}
+.g2>*,.g3>*,.g4>*{min-width:0}
+.g4{display:grid;grid-template-columns:1fr 1.4fr 1fr .8fr;gap:0 10px}
+@media (max-width:700px){.g4{grid-template-columns:1fr}}
+.tbl td .btn{padding:3px 8px;font-size:12px}
 .fld select,.fld input:not([type=checkbox]):not([type=color]){width:100%}
 .editor-preview .card-h h3{text-transform:none;letter-spacing:-.01em;margin:0;font-size:16px;color:var(--ink)}
 .serie{border:1px solid var(--border);border-radius:9px;padding:2px 12px 12px;margin-top:10px;background:var(--surface)}

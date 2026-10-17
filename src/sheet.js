@@ -1,4 +1,4 @@
-import { json } from '../_lib/auth.js';
+import { json } from './http.js';
 
 // Planilha compartilhada pela equipe: a última importada vale para todos.
 // sheet:current = arquivo .xlsx atual; sheet:previous = versão anterior (para restaurar)

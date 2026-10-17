@@ -3,9 +3,8 @@
 .wrangler
 node_modules
 worker
-functions
+src
 wrangler.jsonc
 .assetsignore
 .gitignore
 .dev.vars
-_routes.json

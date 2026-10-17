@@ -49,89 +49,54 @@ As personalizações ficam salvas no navegador de quem as fez. Para torná-las o
 *Configurações → Exportar layout (JSON)* e substitua `config/dashboard.json` no repositório.
 Quem já tinha personalizações locais verá um aviso para adotar o layout publicado.
 
-## Login e dados na nuvem (Cloudflare Pages + Access)
+## Login e dados na nuvem (Cloudflare Workers, plano gratuito)
 
-Hospedado no Cloudflare Pages com o Cloudflare Access na frente, o dashboard passa a ter:
+Publicado como **Cloudflare Worker** (`fsl-dashboard.<conta>.workers.dev`), o dashboard tem:
 
-- **Login obrigatório** antes de carregar qualquer página (código enviado por e-mail ou conta Google), só para os e-mails autorizados;
-- **Layout por usuário**: cada pessoa vê as próprias personalizações em qualquer computador;
-- **Planilha compartilhada**: a última planilha importada fica salva na nuvem e vale para toda a equipe
-  (a versão anterior é guardada e pode ser restaurada em *Configurações*).
+- **Login próprio com e-mail e senha.** Nenhuma página ou arquivo é servido sem sessão válida.
+- **Layout por usuário.** Cada pessoa vê as próprias personalizações em qualquer computador.
+- **Planilha compartilhada.** A última planilha importada vale para toda a equipe; a versão anterior fica guardada e pode ser restaurada em *Configurações*.
+- **Gestão de usuários pelo administrador**, na tela *Usuários*. Cada pessoa troca a própria senha em *Senha*.
 
-O mesmo código continua funcionando no GitHub Pages, no modo local e sem login. O app detecta sozinho em qual ambiente está.
+O mesmo código continua funcionando no GitHub Pages, no modo local e sem login.
 
-### Arquitetura
+### Segurança
 
-```
-navegador ──► Cloudflare Access (login) ──► Cloudflare Pages
-                                             ├── arquivos estáticos (index.html, assets/…)
-                                             └── functions/api/*  ──► KV "DASH_KV"
-                                                  ├── layout:<email>   layout de cada usuário
-                                                  ├── sheet:current    planilha atual (.xlsx)
-                                                  └── sheet:previous   versão anterior
-```
+- Senhas com hash PBKDF2-SHA256 (100 mil iterações, salt aleatório), guardadas no KV.
+- Sessão em cookie `HttpOnly` / `Secure` / `SameSite=Lax`, válida por 7 dias. O botão *Sair* encerra a sessão no servidor.
+- Trocar ou redefinir uma senha derruba todas as sessões abertas daquele usuário.
+- 5 tentativas erradas bloqueiam o login daquele e-mail por 15 minutos.
+- Requisições que alteram dados precisam vir do próprio site (verificação de `Origin`).
+- O código do servidor (`worker/`, `src/`, `wrangler.jsonc`) não é publicado como arquivo (`.assetsignore`).
 
-Cada chamada a `/api/*` confere no servidor o token do Access (`Cf-Access-Jwt-Assertion`):
-assinatura RS256 com as chaves públicas do time, AUD da aplicação, emissor e validade.
-Sem token válido a API responde 401, e não há como acessá-la sem passar pelo login.
+### Configuração (uma vez só)
 
-### Hospedagem como Worker (workers.dev) — configuração atual
-
-O projeto também roda como **Cloudflare Worker** com arquivos estáticos (`wrangler.jsonc` + `worker/index.js`),
-que é o que o botão *Create* do painel cria hoje. O deploy é automático a cada push na `main` (Workers Builds).
-
-1. **Criar o KV.** Vá em *Storage & Databases → KV → Create*, dê o nome `fsl-dashboard` e copie o **ID** do namespace.
-   Coloque o ID em `wrangler.jsonc`, no bloco `kv_namespaces`, com o binding `DASH_KV`.
-2. **Ativar o Access.** No Worker, abra *Settings → Domains & Routes*. Na linha `workers.dev`, ative **Cloudflare Access**.
-   - Depois clique em *Manage Cloudflare Access* e, na policy, inclua os e-mails autorizados.
-   - Desative os *Preview URLs*, ou proteja-os também.
-3. **Configurar as variáveis.** Em *Settings → Variables and Secrets*, crie:
-   - `ACCESS_TEAM_DOMAIN` (ex.: `fslteam.cloudflareaccess.com`)
-   - `ACCESS_AUD` (o *AUD tag* da aplicação criada no Access)
-
-   O `keep_vars: true` em `wrangler.jsonc` evita que o deploy apague essas variáveis.
-
-### Passo a passo — alternativa com Cloudflare Pages
-
-1. **Criar o projeto Pages.** No painel da Cloudflare, abra *Workers & Pages → Create → Pages → Connect to Git* e escolha `nunesjoao/fsl-dashboard`.
-   - *Framework preset*: `None`. *Build command*: vazio. *Build output directory*: `/`.
-   - Clique em **Deploy**. O site fica em `https://fsl-dashboard.pages.dev` (ou no nome que a Cloudflare atribuir).
-2. **Criar o KV.** Abra *Storage & Databases → KV → Create* e dê o nome `fsl-dashboard`.
-   - No projeto Pages, vá em *Settings → Bindings → Add → KV namespace*.
-   - Nome da variável: **`DASH_KV`**. Namespace: `fsl-dashboard`. Faça isso em *Production* e também em *Preview*.
-3. **Ativar o Zero Trust.** Abra *Zero Trust* no menu lateral, escolha um *team name* (ex.: `fslteam` → `fslteam.cloudflareaccess.com`) e o plano **Free**, que vale para até 50 usuários. A Cloudflare pode pedir um cartão mesmo no plano gratuito.
-4. **Proteger o site.** Em *Zero Trust → Access → Applications → Add an application → Self-hosted*:
-   - *Application domain*: `fsl-dashboard.pages.dev`. Adicione também `*.fsl-dashboard.pages.dev` para proteger os previews.
-   - *Policy*: **Allow**, com *Include → Emails* (lista de e-mails autorizados) ou *Emails ending in* (`@suaempresa.com`).
-   - *Login methods*: **One-time PIN** (código por e-mail; não precisa de cadastro). Opcionalmente, Google.
-   - Depois de salvar, copie o **Application Audience (AUD) Tag**, que aparece na aba *Overview* / *Basic information* da aplicação.
-5. **Configurar as variáveis.** No projeto Pages, abra *Settings → Variables and Secrets* (Production e Preview):
-   - `ACCESS_TEAM_DOMAIN` = `fslteam.cloudflareaccess.com`
-   - `ACCESS_AUD` = o AUD Tag copiado no passo anterior
-6. Em *Deployments*, clique em **Retry deployment** (ou faça um commit qualquer) para as variáveis entrarem em vigor.
-7. **Desativar o GitHub Pages.** No GitHub, vá em *Settings → Pages → Unpublish*. Agora o repositório pode voltar a ser **privado**: o Cloudflare Pages lê repositórios privados.
-
-Para dar acesso a mais alguém, inclua o e-mail na policy do Access; não é preciso mexer no código.
-Para tirar o acesso de alguém, remova o e-mail da policy. O link **Sair** encerra a sessão do Access.
+1. O Worker `fsl-dashboard` já está ligado a este repositório pelo *Workers Builds*: cada push na `main` faz o deploy.
+   - Em *Settings → Build*, o *Build command* fica vazio e o *Deploy command* é `npx wrangler deploy`.
+2. O KV `fsl-dashboard` já está vinculado como `DASH_KV` em `wrangler.jsonc`.
+3. No Worker, abra *Settings → Variables and Secrets → Add*.
+   - Tipo **Secret**, nome **`ADMIN_SETUP_CODE`**, valor: um código que só você conheça.
+4. Abra o site. Ele mostra a tela de configuração inicial: informe o código, seu nome, e-mail e senha.
+   - Essa tela só funciona enquanto não houver nenhum usuário.
+   - Depois disso, o código pode ser apagado do painel.
+5. Em *Domains*, desative a URL **Preview** e mantenha só a **Production**.
+6. Desative o GitHub Pages (*Settings → Pages → Unpublish*). O repositório pode voltar a ser **privado**: o Workers Builds lê repositórios privados.
 
 ### Limites do plano gratuito
 
 | Recurso | Limite | Uso esperado |
 |---|---|---|
-| Access (Zero Trust Free) | 50 usuários | equipe |
-| KV — gravações | 1.000/dia | 1 por importação + 1 a cada edição de layout (agrupadas a cada ~1 s) |
-| KV — leituras | 100.000/dia | ~3 por abertura do dashboard |
+| Requisições ao Worker | 100.000/dia | ~15 por abertura do dashboard |
+| KV — leituras | 100.000/dia | ~2 por requisição (sessão + usuário) |
+| KV — gravações | 1.000/dia | login, importação de planilha, edições de layout (agrupadas a cada ~1 s) |
 | KV — tamanho por valor | 25 MiB | planilha limitada a 20 MB no app |
-| Pages Functions | 100.000 requisições/dia | só `/api/*` passa pelas Functions (`_routes.json`) |
 
 ### Teste local
 
 ```bash
-npx wrangler pages dev . --kv DASH_KV --binding DEV_USER=voce@exemplo.com
+echo "ADMIN_SETUP_CODE=teste" > .dev.vars
+npx wrangler dev
 ```
-
-`DEV_USER` simula o usuário logado, e o servidor só aceita isso quando o endereço é `localhost`.
-Nunca defina `DEV_USER` no projeto publicado.
 
 ## Estrutura
 
@@ -141,9 +106,13 @@ assets/app.js         leitura da planilha, agregação, gráficos, editor
 assets/style.css      estilos (tema claro/escuro)
 config/dashboard.json layout padrão publicado
 data/                 (opcional) shipments.xlsx publicado
-functions/_lib/auth.js   verificação do token do Cloudflare Access
-functions/api/*.js       API: /api/me, /api/layout, /api/sheet
-_routes.json             limita as Functions a /api/*
+worker/index.js       Worker: login, sessão, arquivos estáticos e roteamento da API
+src/auth.js           usuários, senhas (PBKDF2), sessões, bloqueio por tentativas
+src/pages.js          telas de login e configuração inicial
+src/users.js          API de usuários e troca de senha
+src/layout.js         API do layout por usuário
+src/sheet.js          API da planilha compartilhada (atual + anterior)
+wrangler.jsonc        configuração do Worker (assets, KV)
 ```
 
 Dependências via CDN (jsDelivr): `xlsx@0.18.5`, `chart.js@4.4.1`, `chartjs-plugin-datalabels@2.2.0`.

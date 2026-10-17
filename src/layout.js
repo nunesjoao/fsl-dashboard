@@ -1,4 +1,4 @@
-import { json } from '../_lib/auth.js';
+import { json } from './http.js';
 
 // Layout (configuração dos gráficos) individual por usuário: chave layout:<email>
 const MAX = 512 * 1024;

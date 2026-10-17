@@ -59,7 +59,7 @@ const S = {
   rate: null, rateSrc: '',
   dataPage: 0, dataQuery: '',
   edit: null, editIsNew: false, globalDraft: null,
-  cloud: null            // { email } quando o site roda no Cloudflare Pages com Access
+  cloud: null            // { email, name, role } quando o site roda no Cloudflare Worker com login
 };
 
 // ---------------------------------------------------------------- utilidades
@@ -80,13 +80,16 @@ function toast(msg, ms = 3200) {
   clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, ms);
 }
 
-// ---------------------------------------------------------------- API (modo nuvem: Cloudflare Pages + Access)
+// ---------------------------------------------------------------- API (modo nuvem: Cloudflare Worker com login)
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 async function api(path, opts = {}) {
   let r;
   try { r = await fetch(path, { credentials: 'same-origin', redirect: 'manual', cache: 'no-store', ...opts }); }
   catch (e) { throw new ApiError(0, 'Sem conexão com o servidor.'); }
-  if (r.type === 'opaqueredirect' || r.status === 401 || r.status === 403) throw new ApiError(401, 'Sessão expirada — recarregue a página para entrar novamente.');
+  if (r.type === 'opaqueredirect' || r.status === 401) {
+    if (S.cloud) setTimeout(() => { location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search); }, 1500);
+    throw new ApiError(401, 'Sessão expirada — entre novamente.');
+  }
   if (!r.ok) { let m = r.status + ''; try { m = (await r.json()).error || m; } catch {} throw new ApiError(r.status, m); }
   return r;
 }
@@ -1011,10 +1014,71 @@ async function loadCloudSheet() {
 
 function setupCloudUI() {
   $('#userBox').hidden = false;
-  $('#userEmail').textContent = S.cloud.email;
+  $('#userEmail').textContent = S.cloud.name || S.cloud.email;
+  $('#userEmail').title = S.cloud.email + (S.cloud.role === 'admin' ? ' (administrador)' : '');
   if (S.cloud.logoutUrl) $('#btnLogout').href = S.cloud.logoutUrl;
+  $('#btnUsers').hidden = S.cloud.role !== 'admin';
+  bindAccountUI();
   $('#emptyNote').textContent = 'A planilha importada fica salva na nuvem e passa a valer para toda a equipe. Seu layout de gráficos é salvo na sua conta.';
   $('#layoutNote').textContent = 'Suas personalizações ficam salvas na sua conta e aparecem em qualquer computador. Para mudar o padrão de quem ainda não personalizou, exporte o JSON e substitua config/dashboard.json no repositório.';
+}
+
+// ---------------------------------------------------------------- conta e usuários (modo nuvem)
+async function loadUsers() {
+  const t = $('#usersTable');
+  t.innerHTML = '<tr><td class="muted">Carregando…</td></tr>';
+  try {
+    const { users } = await (await api('api/users')).json();
+    const d = v => v ? new Date(v).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : '–';
+    t.innerHTML = '<tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Último acesso</th><th></th></tr>' + users.map(u => `
+      <tr data-email="${esc(u.email)}"><td>${esc(u.name || '')}</td><td>${esc(u.email)}</td>
+      <td>${u.role === 'admin' ? 'Administrador' : 'Usuário'}</td><td>${d(u.lastLogin)}</td>
+      <td style="text-align:right">
+        <button type="button" class="btn" data-u="reset">Redefinir senha</button>
+        <button type="button" class="btn" data-u="role">${u.role === 'admin' ? 'Tornar usuário' : 'Tornar admin'}</button>
+        ${u.email === S.cloud.email ? '' : '<button type="button" class="btn danger" data-u="del">Remover</button>'}
+      </td></tr>`).join('');
+  } catch (e) { t.innerHTML = `<tr><td class="missing">${esc(e.message)}</td></tr>`; }
+}
+const genPass = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; return [...a].map(x => c[x % c.length]).join(''); };
+function bindAccountUI() {
+  $('#btnUsers').onclick = () => { $('#dlgUsers').showModal(); loadUsers(); };
+  $('#btnGenPass').onclick = () => { $('#nuPass').value = genPass(); };
+  $('#btnAddUser').onclick = async () => {
+    const body = { name: $('#nuName').value.trim(), email: $('#nuEmail').value.trim(), password: $('#nuPass').value, role: $('#nuRole').value };
+    try {
+      await api('api/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      toast(`Usuário ${body.email} criado. Senha inicial: ${body.password}`, 12000);
+      $('#nuName').value = $('#nuEmail').value = $('#nuPass').value = ''; loadUsers();
+    } catch (e) { toast(e.message, 6000); }
+  };
+  $('#usersTable').onclick = async e => {
+    const b = e.target.closest('[data-u]'); if (!b) return;
+    const email = b.closest('tr').dataset.email; const act = b.dataset.u;
+    try {
+      if (act === 'reset') {
+        const pw = prompt(`Nova senha para ${email} (mín. 8 caracteres):`, genPass()); if (!pw) return;
+        await api('api/users', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password: pw }) });
+        toast(`Senha de ${email} redefinida: ${pw}`, 12000);
+      } else if (act === 'role') {
+        const toAdmin = b.textContent.includes('admin');
+        await api('api/users', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, role: toAdmin ? 'admin' : 'user' }) });
+      } else if (act === 'del') {
+        if (!confirm(`Remover ${email}? O layout dessa pessoa também será apagado.`)) return;
+        await api('api/users?email=' + encodeURIComponent(email), { method: 'DELETE' });
+      }
+      loadUsers();
+    } catch (err) { toast(err.message, 6000); }
+  };
+  $('#btnPassword').onclick = () => { $('#pwCur').value = $('#pwNew').value = $('#pwNew2').value = ''; $('#dlgPassword').showModal(); };
+  $('#btnSavePassword').onclick = async () => {
+    if ($('#pwNew').value !== $('#pwNew2').value) { toast('As senhas novas não conferem.'); return; }
+    try {
+      await api('api/password', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ current: $('#pwCur').value, password: $('#pwNew').value }) });
+      $('#dlgPassword').close(); toast('Senha alterada. Entre novamente com a nova senha.', 4000);
+      setTimeout(() => { location.href = '/login'; }, 1800);
+    } catch (e) { toast(e.message, 6000); }
+  };
 }
 
 async function init() {

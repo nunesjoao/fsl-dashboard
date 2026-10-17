@@ -8,9 +8,9 @@
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": true
   },
-  // Variáveis ACCESS_TEAM_DOMAIN e ACCESS_AUD são definidas no painel (Settings → Variables and Secrets)
+  // Secret ADMIN_SETUP_CODE (definido no painel) libera a criação do primeiro administrador
   "keep_vars": true,
   // KV "fsl-dashboard": layouts por usuário e planilha compartilhada
   "kv_namespaces": [

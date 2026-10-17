@@ -25,7 +25,9 @@
     <span id="userBox" class="userbox" hidden>
       <span id="userEmail" class="mono"></span>
       <span id="syncState" class="muted"></span>
-      <a class="btn" id="btnLogout" href="/cdn-cgi/access/logout">Sair</a>
+      <button class="btn" id="btnUsers" hidden>Usuários</button>
+      <button class="btn" id="btnPassword">Senha</button>
+      <a class="btn" id="btnLogout" href="/logout">Sair</a>
     </span>
   </nav>
   <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls" hidden>
@@ -121,6 +123,36 @@
       <input type="file" id="cfgInput" accept=".json" hidden>
     </div>
     <footer class="dlg-f"><span class="spacer"></span><button class="btn" value="cancel">Cancelar</button><button class="btn primary" type="button" id="btnSaveSettings">Salvar</button></footer>
+  </form>
+</dialog>
+
+<!-- Usuários (admin) -->
+<dialog id="dlgUsers" class="dlg wide">
+  <form method="dialog" id="usersForm">
+    <header class="dlg-h"><h2>Usuários</h2><button class="btn icon" value="cancel" aria-label="Fechar">✕</button></header>
+    <div class="tablewrap" style="margin-top:16px"><table class="tbl" id="usersTable"></table></div>
+    <h3>Novo usuário</h3>
+    <div class="g4">
+      <label class="fld"><span>Nome</span><input id="nuName" autocomplete="off"></label>
+      <label class="fld"><span>E-mail</span><input id="nuEmail" type="email" autocomplete="off"></label>
+      <label class="fld"><span>Senha inicial (mín. 8)</span><input id="nuPass" autocomplete="off"></label>
+      <label class="fld"><span>Perfil</span><select id="nuRole"><option value="user">Usuário</option><option value="admin">Administrador</option></select></label>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn" type="button" id="btnGenPass">Gerar senha</button><button class="btn primary" type="button" id="btnAddUser">Adicionar</button></div>
+    <p class="muted">Envie a senha inicial à pessoa por um canal seguro; ela pode trocá-la em <b>Senha</b> depois de entrar. Administradores podem cadastrar usuários e redefinir senhas.</p>
+    <footer class="dlg-f"><span class="spacer"></span><button class="btn" value="cancel">Fechar</button></footer>
+  </form>
+</dialog>
+
+<!-- Trocar senha -->
+<dialog id="dlgPassword" class="dlg">
+  <form method="dialog">
+    <header class="dlg-h"><h2>Trocar senha</h2><button class="btn icon" value="cancel" aria-label="Fechar">✕</button></header>
+    <label class="fld"><span>Senha atual</span><input id="pwCur" type="password" autocomplete="current-password"></label>
+    <label class="fld"><span>Nova senha (mín. 8)</span><input id="pwNew" type="password" autocomplete="new-password"></label>
+    <label class="fld"><span>Confirmar nova senha</span><input id="pwNew2" type="password" autocomplete="new-password"></label>
+    <p class="muted">Ao trocar a senha, as sessões abertas em outros computadores são encerradas.</p>
+    <footer class="dlg-f"><span class="spacer"></span><button class="btn" value="cancel">Cancelar</button><button class="btn primary" type="button" id="btnSavePassword">Salvar</button></footer>
   </form>
 </dialog>
 
